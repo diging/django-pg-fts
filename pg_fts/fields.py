@@ -278,7 +278,10 @@ class TSVectorTsQueryLookup(Lookup):
         if hasattr(self.lhs, 'dictionary'):
             dictionary = self.lhs.dictionary
         else:
-            dictionary = self.lhs.source.get_dictionary()
+            try:
+                dictionary = self.lhs.source.get_dictionary()
+            except AttributeError:
+                dictionary = self.lhs.target.dictionary
         return self.lookup_sql % (lhs, dictionary, rhs), params
 
     @property

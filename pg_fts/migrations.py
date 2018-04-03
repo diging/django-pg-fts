@@ -150,7 +150,11 @@ class BaseVectorOperation(Operation):
     def database_forwards(self, app_label, schema_editor, from_state,
                           to_state):
 
-        model = from_state.render().get_model(app_label, self.name)
+        try:
+            model = from_state.render().get_model(app_label, self.name)
+        except AttributeError:
+            model = from_state.apps.get_model(app_label, self.name)
+
         vector_field = model._meta.get_field(self.fts_vector)
         schema_editor.execute(self.forward_fn(
             model,
@@ -218,7 +222,10 @@ class CreateFTSTriggerOperation(BaseVectorOperation):
     def database_backwards(self, app_label, schema_editor, from_state,
                            to_state):
 
-        model = from_state.render().get_model(app_label, self.name)
+        try:
+            model = from_state.render().get_model(app_label, self.name)
+        except AttributeError:
+            model = from_state.apps.get_model(app_label, self.name)
         vector_field = model._meta.get_field(self.fts_vector)
 
         schema_editor.execute(self.backward_fn(
@@ -279,9 +286,11 @@ class CreateFTSIndexOperation(BaseVectorOperation):
 
     def database_forwards(self, app_label, schema_editor, from_state,
                           to_state):
-        # print(dir(from_state))
-        # django 1.8 doesn't have ProjectState.render()
-        model = from_state.render().get_model(app_label, self.name)
+        try:
+            model = from_state.render().get_model(app_label, self.name)
+        except AttributeError:
+            # django 1.8 doesn't have ProjectState.render()
+            model = from_state.apps.get_model(app_label, self.name)
         vector_field = model._meta.get_field(self.fts_vector)
         if not isinstance(vector_field, TSVectorField):
             raise AttributeError
@@ -292,7 +301,10 @@ class CreateFTSIndexOperation(BaseVectorOperation):
     def database_backwards(self, app_label, schema_editor, from_state,
                            to_state):
 
-        model = from_state.render().get_model(app_label, self.name)
+        try:
+            model = from_state.render().get_model(app_label, self.name)
+        except AttributeError:
+            model = from_state.apps.get_model(app_label, self.name)
         vector_field = model._meta.get_field(self.fts_vector)
 
         schema_editor.execute(self.sql_creator.delete_index(
