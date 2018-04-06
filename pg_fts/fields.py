@@ -9,6 +9,7 @@ import re
 
 __all__ = ('TSVectorField', 'TSVectorBaseField', 'TSVectorTsQueryLookup',
            'TSVectorSearchLookup', 'TSVectorISearchLookup',
+           'TSVectorPlainTsqueryLookup',
            'DictionaryTransform')
 
 """
@@ -35,10 +36,11 @@ class TSVectorBaseField(Field):
         :pg_docs:`PostgreSQL documentation 12.6. Dictionaries
         <textsearch-dictionaries.html>`
 
-    :raises: exceptions.FieldError if lookup isn't tsquery, search or isearch
+    :raises: exceptions.FieldError if lookup isn't tsquery, search, isearch, or
+    plain_tsquery.
 
     """
-    valid_lookups = ('search', 'isearch', 'tsquery')
+    valid_lookups = ('search', 'isearch', 'tsquery', 'plain_tsquery')
     empty_strings_allowed = True
 
     def __init__(self, dictionary='english', **kwargs):
@@ -71,6 +73,8 @@ class TSVectorBaseField(Field):
         if lookup_type in ('search', 'isearch'):
             operation = ' & ' if lookup_type == 'search' else ' | '
             return "%s" % operation.join(search_re.sub('', value).split())
+        elif lookup_type == 'plain_tsquery':
+            return value
         elif lookup_type == 'tsquery':
             return "%s" % ' '.join(tsvector_re.sub('', value).split())
 
@@ -362,6 +366,47 @@ class TSVectorISearchLookup(TSVectorTsQueryLookup):
 
 
 TSVectorBaseField.register_lookup(TSVectorISearchLookup)
+
+class TSVectorPlainTsqueryLookup(TSVectorTsQueryLookup):
+    """
+    TSVectorField Lookup plain_tsquery
+
+    Raw plainto_tsquery lookup, check the documentation for more details
+        :pg_docs:`12.3.2. Parsing Queries
+        <textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES>`
+
+    :param query values: valid PostgreSQL tsquery
+
+        .. caution::
+            If the query is not a valid PostgreSQL to_tsquery will result in a
+            syntax error
+
+    Example::
+
+        Article.objects.filter(
+            tsvector__plain_tsquery="The Fat & Rats:C"
+        )
+
+    SQL equivalent:
+
+    .. code-block:: sql
+
+        "tsvector" @@ plainto_tsquery('english', 'fat' & 'rat' & 'c'')
+
+    .. note::
+
+        The lookup will get dictionary value in
+            :class:`~pg_fts.fields.TSVectorField`, this case *english*
+
+        In case of multiple dictionaries see
+            :class:`~pg_fts.fields.DictionaryTransform`
+
+    """
+    lookup_name = 'plain_tsquery'
+    lookup_sql = "%s @@ plainto_tsquery('%s', %s)"
+
+
+TSVectorBaseField.register_lookup(TSVectorPlainTsqueryLookup)
 
 
 class DictionaryTransform(Transform):
